@@ -1,0 +1,147 @@
+/*
+스폰은 그 방법으로 "크립"이라는 새로운 유닛을 생성합니다 spawnCreep. 이 방법의 사용법은 설명서에 설명되어 있습니다 .
+각 크립에는 다양한 기술을 제공하는 이름과 특정 신체 부위가 있습니다.
+다음과 같은 방법으로 스폰 이름을 지정할 수 있습니다. Game.spawns['Spawn1'].
+본문 배열 [WORK,CARRY,MOVE]과 이름 으로 작업자 크립을 만듭니다. 
+
+https://docs.screeps.com/api/#StructureSpawn.spawnCreep (spawnCreep.)
+https://docs.screeps.com/global-objects.html#Game-object (게임오브젝트)
+https://docs.screeps.com/creeps.html (크립)
+https://docs.screeps.com/introduction.html#Your-colony (식민지)
+*/
+
+(console)
+Game.spawns['Spawn1(스폰이름)'].spawnCreep( [WORK, CARRY, MOVE], 'Harvester1(원하는 크립이름)' );
+
+/*
+에너지를 수확하기 위해 크리프를 보내려면 아래 문서 섹션에 설명 된 방법을 사용해야합니다. 각 게임 틱마다 명령이 전달됩니다.
+이 harvest방법은 에너지 원이 크리프에 인접 해 있어야합니다.
+다음과 같이 크입에 이름으로 명령을 Game.creeps['Harvester1'] 내립니다. 
+FIND_SOURCES상수를 Room.find메소드 의 인수로 사용하십시오 .
+
+https://docs.screeps.com/api/#Game.creeps
+https://docs.screeps.com/api/#RoomObject.room
+https://docs.screeps.com/api/#Room.find
+https://docs.screeps.com/api/#Creep.moveTo
+https://docs.screeps.com/api/#Creep.harvest
+*/
+
+(main)
+module.exports.loop = function () {
+    var creep = Game.creeps['Harvester1(원하는 크립이름)'];
+    var sources = creep.room.find(FIND_SOURCES);
+    if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(sources[0]);
+    }
+}
+
+/*
+크립 전송 에너지를 스폰으로 되돌리려면이 방법을 사용해야합니다 Creep.transfer. 
+그러나 크립이 스폰 옆에있을 때 수행해야하므로 크립을 뒤로 걸어야합니다.
+.store.getFreeCapacity() > 0을 추가하여 코드를 수정하면 자체적으로 앞뒤로 이동할 수 있으며 스폰에 에너지를 공급하고 소스로 돌아갑니다.
+
+https://docs.screeps.com/api/#Creep.transfer
+https://docs.screeps.com/api/#Creep.store
+*/
+
+(main)
+module.exports.loop = function () {
+    var creep = Game.creeps['Harvester1(원하는 크립이름)'];
+
+    if(creep.store.getFreeCapacity() > 0) {
+        var sources = creep.room.find(FIND_SOURCES);
+        if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(sources[0]);
+        }
+    }
+    else {
+        if( creep.transfer(Game.spawns['Spawn1(스폰이름)'], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE ) {
+            creep.moveTo(Game.spawns['Spawn1(스폰이름)']);
+        }
+    }
+}
+
+/*
+크립은 죽을 때까지 일꾼으로 일할 거에요. 
+거의 모든 크리프의 수명 주기는 1500이며, 그런 다음 "노화"되고 소멸됩니다.
+첫 번째 작업자를 돕기 위해 또 다른 작업자 크립을 만들죠.
+200개의 에너지 단위가 더 들 것이기 때문에, 여러분은 여러분의 크립이 충분한 에너지를 모을 때까지 기다려야 할지도 모릅니다.
+sulfCreep 메서드는 그때까지 오류 코드 ERR_NOT_ENOG_ENERGY(-6)를 반환합니다.
+
+https://docs.screeps.com/api/#StructureSpawn.spawnCreep
+*/
+
+(console)
+Game.spawns['Spawn1(스폰이름)'].spawnCreep( [WORK, CARRY, MOVE], 'Harvester2(원하는 크립이름)' );
+
+/*
+두 번째 크립는 준비되었지만 프로그램에 포함시킬 때까지 움직이지 않습니다.
+두 가지 크립의 동작을 설정하려면 두 번째 스크립트에 대해 전체 스크립트를 복제하기만 하면 됩니다. 
+하지만 Game.creeps의 모든 스크립에 대해 이 루프를 사용하는 것이 훨씬 좋습니다.
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...in(javaScript참조)
+*/
+
+(main)
+module.exports.loop = function () {
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+
+        if(creep.store.getFreeCapacity() > 0) {
+            var sources = creep.room.find(FIND_SOURCES);
+            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0]);
+            }
+        }
+        else {
+            if(creep.transfer(Game.spawns['Spawn1(스폰이름)'], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(Game.spawns['Spawn1(스폰이름)']);
+            }
+        }
+    }
+}
+
+/*
+이제 근로자의 행동을 별도의 모듈로 바꿔서 코드를 개선해 보겠습니다. 
+스크립트 편집기 왼쪽에 있는 모듈 섹션의 도움을 받아 role.harvester라는 모듈을 만들고 크립 
+동작을 포함하는 module.exports 객체 내에서 실행 기능을 정의합니다.
+
+https://docs.screeps.com/modules.html (모듈을 사용하여 스크립트 구성)
+*/
+
+(role.harvester)
+var roleHarvester = {
+
+    /** @param {Creep} creep **/
+    run: function(creep) {
+	    if(creep.store.getFreeCapacity() > 0) {
+            var sources = creep.room.find(FIND_SOURCES);
+            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0]);
+            }
+        }
+        else {
+            if(creep.transfer(Game.spawns['Spawn1'], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(Game.spawns['Spawn1']);
+            }
+        }
+	}
+};
+
+module.exports = roleHarvester;
+
+/*
+이제 메인 모듈 코드를 다시 작성할 수 있으며, 루프와 새 모듈로 호출만 남겨두면 됩니다.('role.harvester')
+메인 모듈에 role.harvester 모듈을 포함합니다.
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+
+module.exports.loop = function () {
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        roleHarvester.run(creep);
+    }
+}
