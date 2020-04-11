@@ -1,0 +1,144 @@
+/*
+지금까지 우리는 콘솔에 직접 새로운 크립을 만들어왔습니다. 
+Screeps의 아이디어는 여러분의 식민지를 스스로 통제하게 만들기 때문에 이것을 계속하는 것은 좋지 않습니다. 
+만약 당신이 당신의 새끼들에게 방에서 스스로 낳도록 가르친다면 당신은 잘 할 것입니다.
+이것은 다소 복잡한 주제이며 많은 플레이어가 자동 스핑 코드를 완성하고 다듬는 데 몇 달을 소비한다. 
+하지만 최소한 간단한 것을 시도해 보고 시작할 몇 가지 기본 원칙을 숙달해 보겠습니다.
+*/
+
+/*
+나이든 사람들이 늙어서 죽거나 다른 이유들로 인해 새로운 것을 만들어내야 할 것입니다. 
+게임에서 특정 크립의 죽음을 보고하는 이벤트가 없기 때문에, 가장 쉬운 방법은 필요한 크립의 수를 세어보고, 
+그것이 정의된 값 미만이 되면, 산란하기 시작하는 것입니다.
+필요한 유형의 크립 수를 셀 수 있는 몇 가지 방법이 있습니다. 그 중 하나는 _.filter 기능의 도움을 받아 Game.creeps를 필터링하고 그 역할을 기억 속에 사용하는 것입니다.
+그렇게 해서 크립의 수를 콘솔로 가져오도록 하죠. 역할 검색기가 있는 크립 수 출력을 콘솔에 추가합니다.
+
+https://docs.screeps.com/api/#Game.creeps
+https://lodash.com/docs#filter
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+var roleUpgrader = require('role.upgrader');
+
+module.exports.loop = function () {
+
+    var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'harvester');
+    console.log('Harvesters: ' + harvesters.length);
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'upgrader') {
+            roleUpgrader.run(creep);
+        }
+    }
+}
+
+/*
+언제든지 최소 두 개의 수확기를 갖고싶다고 가정해 보겠습니다. 
+이를 실현하는 가장 쉬운 방법은 StructureSpawn.spawnCreep을 실행하는 것입니다. 
+이름을 정의할 수는 없지만(이 경우 자동으로 지정됨) 필요한 역할을 정의해야 합니다.
+또한 어떤 크립이 생성되고 있는지 시각화하기 위해 새로운 RoomVisual 호출을 추가할 수도 있습니다.
+주 모듈에 StructureSpawn.spawnCreep 논리를 추가합니다.
+
+https://docs.screeps.com/api/#StructureSpawn.spawnCreep
+https://docs.screeps.com/api/#RoomVisual
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+var roleUpgrader = require('role.upgrader');
+
+module.exports.loop = function () {
+
+    var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'harvester');
+    console.log('Harvesters: ' + harvesters.length);
+
+    if(harvesters.length < 2) {
+        var newName = 'Harvester' + Game.time;
+        console.log('Spawning new harvester: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+            {memory: {role: 'harvester'}});        
+    }
+    
+    if(Game.spawns['Spawn1'].spawning) { 
+        var spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
+        Game.spawns['Spawn1'].room.visual.text(
+            '🛠️' + spawningCreep.memory.role,
+            Game.spawns['Spawn1'].pos.x + 1, 
+            Game.spawns['Spawn1'].pos.y, 
+            {align: 'left', opacity: 0.8});
+    }
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'upgrader') {
+            roleUpgrader.run(creep);
+        }
+    }
+}
+
+/*
+이제 우리의 포부들 중 한 명이 죽었을 때의 상황을 본받도록 해요.
+이제 오른쪽 콘솔 또는 해당 속성 패널을 통해 크립에게 자살 명령을 내릴 수 있습니다.
+살인범 중 한 명을 자살로 만듭니다.
+
+https://docs.screeps.com/api/#Creep.suicide
+*/
+
+(console)
+Game.creeps['Harvester1'].suicide()
+
+/*
+여기서 중요한 점은 죽은 크립의 기억은 지워지지 않고 나중에 재사용하기 위해 보관된다는 것입니다. 
+임의의 이름으로 크립을 만들 때마다 메모리 오버플로가 발생할 수 있으므로 각 눈금(크립 생성 코드 이전)의 시작 부분에서 크립을 지워야 합니다.
+코드를 추가하여 메모리를 지웁니다.
+*/
+
+(main)
+var roleUpgrader = require('role.upgrader');
+
+module.exports.loop = function () {
+
+    for(var name in Memory.creeps) {
+        if(!Game.creeps[name]) {
+            delete Memory.creeps[name];
+            console.log('Clearing non-existing creep memory:', name);
+        }
+    }
+
+    var harvesters = _.filter(Game.creeps, (creep) => creep.memory.role == 'harvester');
+    console.log('Harvesters: ' + harvesters.length);
+
+    if(harvesters.length < 2) {
+        var newName = 'Harvester' + Game.time;
+        console.log('Spawning new harvester: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+            {memory: {role: 'harvester'}});
+    }
+    
+    if(Game.spawns['Spawn1'].spawning) { 
+        var spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
+        Game.spawns['Spawn1'].room.visual.text(
+            '🛠️' + spawningCreep.memory.role,
+            Game.spawns['Spawn1'].pos.x + 1, 
+            Game.spawns['Spawn1'].pos.y, 
+            {align: 'left', opacity: 0.8});
+    }
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'upgrader') {
+            roleUpgrader.run(creep);
+        }
+    }
+}
