@@ -1,0 +1,87 @@
+/*
+이곳에서는 다음과 같은 주요 전략 객체에 대해 설명합니다. 룸 컨트롤러입니다. 
+이 무적의 구조를 제어함으로써 여러분은 방에 시설을 지을 수 있습니다. 
+컨트롤러 레벨이 높을수록 더 많은 구조를 빌드할 수 있습니다.
+*/
+
+/*
+컨트롤러 레벨을 업그레이드하려면 새 작업자가 필요합니다. Upgradeader1이라고 하죠. 
+다음에서는 크립을 자동으로 생성하는 방법에 대해 설명하지만, 지금은 콘솔에 수동으로 명령을 전송해 보겠습니다.
+[WORK, CARRI, MOVE] 본문과 Upgradeader1 이름을 사용하여 크리프를 생성합니다.
+
+https://docs.screeps.com/api/#Game.spawns
+https://docs.screeps.com/api/#StructureSpawn.spawnCreep
+*/
+
+(console)
+Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Upgrader1' );
+
+/*
+크립 "Upgrader1"은 Harvester1와 같은 임무를 수행하러 갔지만, 우리는 그것을 원하지 않습니다. 우리는 크립에 역할을 구별해야 합니다.
+*/
+
+/*
+그러기 위해서는 크립의 "기억"에 사용자 지정 정보를 쓸 수 있는 각 크립의 메모리 속성을 활용해야 합니다. 
+사람들에게 다른 역할을 할당하기 위해 이렇게 하죠.
+저장된 모든 메모리는 글로벌 메모리 개체를 통해 액세스할 수 있습니다. 당신이 원하는 어떤 방법으로든 사용할 수 있습니다.
+콘솔의 도움을 받아 업그레이드하는 크립에게 속성 role='harvester'와 role='upgrader'를 기억 속에 씁니다.
+
+https://docs.screeps.com/api/#Creep.memory
+/*
+
+(console)
+Game.creeps['Harvester1'].memory.role = 'harvester';
+Game.creeps['Upgrader1'].memory.role = 'upgrader';
+
+*/
+왼쪽의 크립 정보 패널 또는 "메모리" 탭에서 크리프의 메모리를 확인할 수 있습니다.
+이제 새로운 크립의 행동을 정의해 보겠습니다. 
+두 크리프는 모두 에너지를 수집해야 하지만 역할 harvester가 있는 크립은 산란을 데려와야 하며, 
+역할 upgrader자가 있는 크립은 컨트롤러로 가서 기능 upgradeController를 적용해야 합니다(Creep.room.컨트롤러 속성의 도움을 받아 컨트롤러 개체를 얻을 수 있습니다).
+이를 위해 role.upgrader라는 새로운 모듈을 만들 것입니다.
+새로운 크립의 동작 논리로 새 모듈 role.upgrader를 만듭니다.
+*/
+
+(role.upgrader)
+var roleUpgrader = {
+
+    /** @param {Creep} creep **/
+    run: function(creep) {
+	    if(creep.store[RESOURCE_ENERGY] == 0) {
+            var sources = creep.room.find(FIND_SOURCES);
+            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0]);
+            }
+        }
+        else {
+            if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(creep.room.controller);
+            }
+        }
+	}
+};
+
+module.exports = roleUpgrader;
+
+/*
+우리의 메인 모듈에서는 모든 크립이 같은 역할을 합니다. 
+우리는 새 모듈을 연결하여 이전에 정의한 속성 Creep.memory.role에 따라 그들의 행동을 나눌 필요가 있습니다.
+role.upgrader를 사용하여 모듈 role.upgrader의 논리를 크립에 적용하고 작동 방식을 확인합니다.
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+var roleUpgrader = require('role.upgrader');
+
+module.exports.loop = function () {
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'upgrader') {
+            roleUpgrader.run(creep);
+        }
+    }
+}
