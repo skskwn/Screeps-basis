@@ -103,6 +103,7 @@ Game.creeps['Harvester1'].suicide()
 */
 
 (main)
+var roleHarvester = require('role.harvester');
 var roleUpgrader = require('role.upgrader');
 
 module.exports.loop = function () {
