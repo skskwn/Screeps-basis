@@ -101,7 +101,8 @@ module.exports.loop = function () {
 /*
 확장을 유지하려면 수확자에게 산란을 위한 에너지뿐만 아니라 확장자에도 에너지를 전달하도록 가르칠 필요가 있습니다. 
 이렇게 하려면 Game.structures 객체를 사용하거나 Room.find(FIND_STRORESS)의 도움을 받아 룸 내에서 검색할 수 있습니다. 
-두 경우 모두 상태 structure.structureType == STRUCTURE_EXTENSION(또는 구조물의 structure instanceof StructureExtension) 및 이전과 같이 에너지 부하를 확인합니다.
+두 경우 모두 상태 structure.structureType == STRUCTURE_EXTENSION(또는 구조물의 structure instanceof StructureExtension) 
+및 이전과 같이 에너지 부하를 확인합니다.
 모듈 role.harvester의 논리를 세분화합니다.
 
 https://docs.screeps.com/api/#Game.structures
