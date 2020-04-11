@@ -1,0 +1,177 @@
+/*
+컨트롤러 업그레이드를 통해 벽, 성벽 및 확장과 같은 일부 새 구조에 액세스할 수 있습니다. 
+다음섹션에서 벽과 성벽을 살펴보겠습니다. 이제 확장에 대해 살펴보겠습니다.
+더 큰 크립을 만들려면 확장이 필요합니다. 한 종류의 신체 부위만 있는 크리프는 잘 작동하지 않습니다. 
+여러 개의 WORK를 제공하면 그에 비례하여 더 빨리 작업할 수 있습니다.
+하지만, 그러한 새끼는 비용이 많이 들 것이고 외로운 새끼는 300개의 에너지 유닛만 포함할 수 있습니다. 
+300개 이상의 에너지 단위가 들어가는 크립을 만들려면 산란을 확장해야 합니다.
+*/
+
+/*
+두 번째 컨트롤러 레벨에는 빌드할 수 있는 5개의 확장이 있습니다. 이 숫자는 각 새 레벨에 따라 증가합니다.
+룸의 임의 위치에 확장자를 배치할 수 있으며, 거리에 상관없이 산란이 확장자를 사용할 수 있습니다.
+여기에서는 귀하의 편의를 위해 해당 건설 현장을 이미 배치했습니다. (건설현장 참고)
+*/
+
+/*
+건축물을 만드는 것이 목적인 새로운 크립을 만들어보죠. 이 프로세스는 이전섹션과 유사합니다. 
+그러나 이번에는 세 번째 인수에 전달하여 Culf.spawnCreep 방법에서 새로운 크립에 대한 메모리를 설정해 보겠습니다.
+Builder1 및 {role:'builder'}이라는 본문을 메모리로 사용하여 크립을 생성합니다.
+*/
+
+(console)
+Game.spawns['Spawn1'].spawnCreep( [WORK, CARRY, MOVE], 'Builder1',
+    { memory: { role: 'builder' } } );
+
+/*
+빌더에 대한 행동을 정의하기 전까지는 우리의 새로운 크립은 움직이지 않을 것입니다.
+*/
+
+/*
+이전과 같이 이 역할을 별도의 모듈 역할로 옮겨보겠습니다. 건축가입니다. 
+Room.find(FIND_CRUMNATION_SITE)에서 검색할 수 있는 건설 현장에 Creep.build 방법을 적용하여 건물을 수행합니다. 
+그 구조는 당신의 크립이 스스로 수확할 수 있는 에너지를 필요로 합니다.
+크립이 앞뒤로 너무 자주 달리지만 화물을 고갈시키는 것을 피하기 위해, 
+새로운 부울 변수 creep.memory.building 을 만들어 크립에게 작업을 전환할 때를 알려줍니다. 
+또한 moveTo 메서드에 새로운 creep.say 호출 및 시각화 PathStyle 옵션을 추가하여 크립의 의도를 시각화합니다.
+모듈 역할을 생성합니다. 새로운 크립을 위한 행동 논리를 가진 건축가입니다.
+
+https://docs.screeps.com/api/#RoomObject.room
+https://docs.screeps.com/api/#Room.find
+https://docs.screeps.com/api/#Creep.build
+https://docs.screeps.com/api/#Creep.say
+*/
+
+(role.builder)
+var roleBuilder = {
+
+    /** @param {Creep} creep **/
+    run: function(creep) {
+
+	    if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
+            creep.memory.building = false;
+            creep.say('🔄 harvest');
+	    }
+	    if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
+	        creep.memory.building = true;
+	        creep.say('🚧 build');
+	    }
+
+	    if(creep.memory.building) {
+	        var targets = creep.room.find(FIND_CONSTRUCTION_SITES);
+            if(targets.length) {
+                if(creep.build(targets[0]) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
+                }
+            }
+	    }
+	    else {
+	        var sources = creep.room.find(FIND_SOURCES);
+            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+	    }
+	}
+};
+
+module.exports = roleBuilder;
+
+/*
+주 모듈에서 새 역할의 호출을 만들고 결과를 기다립니다.
+모듈 역할을 사용합니다.새로운 크립에 빌더, 확장 5개를 모두 지어야 합니다.
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+var roleBuilder = require('role.builder');
+
+module.exports.loop = function () {
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'builder') {
+            roleBuilder.run(creep);
+        }
+    }
+}
+
+/*
+확장을 유지하려면 수확자에게 산란을 위한 에너지뿐만 아니라 확장자에도 에너지를 전달하도록 가르칠 필요가 있습니다. 
+이렇게 하려면 Game.structures 객체를 사용하거나 Room.find(FIND_STRORESS)의 도움을 받아 룸 내에서 검색할 수 있습니다. 
+두 경우 모두 상태 structure.structureType == STRUCTURE_EXTENSION(또는 구조물의 structure instanceof StructureExtension) 및 이전과 같이 에너지 부하를 확인합니다.
+모듈 role.harvester의 논리를 세분화합니다.
+
+https://docs.screeps.com/api/#Game.structures
+https://docs.screeps.com/api/#Room.find
+https://docs.screeps.com/api/#StructureExtension
+*/
+
+(role.harvester)
+var roleHarvester = {
+
+    /** @param {Creep} creep **/
+    run: function(creep) {
+	    if(creep.store.getFreeCapacity() > 0) {
+            var sources = creep.room.find(FIND_SOURCES);
+            if(creep.harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+        }
+        else {
+            var targets = creep.room.find(FIND_STRUCTURES, {
+                    filter: (structure) => {
+                        return (structure.structureType == STRUCTURE_EXTENSION || structure.structureType == STRUCTURE_SPAWN) &&
+                            structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                    }
+            });
+            if(targets.length > 0) {
+                if(creep.transfer(targets[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
+                }
+            }
+        }
+	}
+};
+
+module.exports = roleHarvester;
+
+/*
+방의 총 에너지 양을 알기 위해 Room.energyAvailable 속성을 사용할 수 있습니다. 
+확장자를 채우는 동안 이 속성의 출력을 추적하기 위해 콘솔에 추가하겠습니다.
+모든 5개의 연장선과 산란을 에너지로 채웁니다.
+
+https://docs.screeps.com/api/#Room.energyAvailable
+*/
+
+(main)
+var roleHarvester = require('role.harvester');
+var roleBuilder = require('role.builder');
+
+module.exports.loop = function () {
+
+    for(var name in Game.rooms) {
+        console.log('Room "'+name+'" has '+Game.rooms[name].energyAvailable+' energy');
+    }
+
+    for(var name in Game.creeps) {
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'harvester') {
+            roleHarvester.run(creep);
+        }
+        if(creep.memory.role == 'builder') {
+            roleBuilder.run(creep);
+        }
+    }
+}
+
+/*
+모든 구조물이 에너지로 가득 차면. 이제 크립을 크게 만들 수 있습니다.
+*/
+
+(console)
+Game.spawns['Spawn1'].spawnCreep( [WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE],
+    'HarvesterBig',
+    { memory: { role: 'harvester' } } );
