@@ -1,2 +1,2 @@
-# Screeps-
-Screeps 기본구축
+# Screeps
+Explain the basics of Screeps.
